@@ -1,4 +1,5 @@
 .env
+.venv/
 auth.json
 receipt-downloads/
 __pycache__/

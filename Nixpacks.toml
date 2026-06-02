@@ -1,3 +1,6 @@
+[variables]
+PLAYWRIGHT_BROWSERS_PATH = "0"
+
 [phases.setup]
 nixPkgs = ["python311", "python311Packages.pip"]
 aptPkgs = [
