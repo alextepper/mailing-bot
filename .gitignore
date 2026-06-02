@@ -1,0 +1,6 @@
+.env
+.venv/
+auth.json
+receipt-downloads/
+__pycache__/
+*.py[cod]
