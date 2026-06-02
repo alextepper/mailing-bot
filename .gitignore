@@ -1,0 +1,5 @@
+.env
+auth.json
+receipt-downloads/
+__pycache__/
+*.py[cod]
