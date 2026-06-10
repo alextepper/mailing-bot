@@ -19,8 +19,14 @@ from pathlib import Path
 from smtplib import SMTP, SMTP_SSL
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel, EmailStr, Field
+
+from github_receipts import (
+    GitHubReceiptError,
+    load_github_settings,
+    push_receipt_to_github,
+)
 from playwright.async_api import (
     Browser,
     BrowserContext,
@@ -103,6 +109,14 @@ class ReceiptResponse(BaseModel):
     status: str
     sale_id: str
     customer_email: EmailStr
+
+
+class ReceiptWebhookResponse(BaseModel):
+    status: str
+    sale_id: str
+    github_path: str
+    commit_sha: str
+    html_url: str
 
 
 app = FastAPI(title="Inventory Receipt Automation", version="1.0.0")
@@ -456,6 +470,52 @@ async def process_receipt_request(request: ReceiptRequest) -> ReceiptResponse:
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/webhooks/receipts", response_model=ReceiptWebhookResponse)
+async def receive_receipt_webhook(
+    sale_id: str = Form(..., min_length=1),
+    file: UploadFile = File(...),
+    x_webhook_secret: Optional[str] = Header(default=None, alias="X-Webhook-Secret"),
+) -> ReceiptWebhookResponse:
+    try:
+        settings = load_github_settings()
+    except GitHubReceiptError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if settings.webhook_secret and x_webhook_secret != settings.webhook_secret:
+        raise HTTPException(status_code=401, detail="Invalid webhook secret")
+
+    if file.content_type not in {None, "application/pdf", "application/octet-stream"}:
+        raise HTTPException(status_code=400, detail="Receipt file must be a PDF")
+
+    content = await file.read()
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid PDF")
+
+    try:
+        github_result = await push_receipt_to_github(
+            settings,
+            sale_id=sale_id,
+            content=content,
+            filename=file.filename,
+        )
+    except GitHubReceiptError as exc:
+        LOGGER.exception("Failed to push receipt to GitHub for sale %s", sale_id)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    LOGGER.info(
+        "Pushed receipt for sale %s to GitHub at %s",
+        sale_id,
+        github_result["github_path"],
+    )
+    return ReceiptWebhookResponse(
+        status="pushed",
+        sale_id=sale_id,
+        github_path=github_result["github_path"],
+        commit_sha=github_result["commit_sha"],
+        html_url=github_result["html_url"],
+    )
 
 
 @app.post("/receipts/send", response_model=ReceiptResponse)
