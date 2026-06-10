@@ -19,7 +19,7 @@ from pathlib import Path
 from smtplib import SMTP, SMTP_SSL
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, EmailStr, Field
 from playwright.async_api import (
     Browser,
@@ -103,6 +103,13 @@ class ReceiptResponse(BaseModel):
     status: str
     sale_id: str
     customer_email: EmailStr
+
+
+class ReceiptWebhookResponse(BaseModel):
+    status: str
+    sale_id: str
+    filename: str
+    size_bytes: int
 
 
 app = FastAPI(title="Inventory Receipt Automation", version="1.0.0")
@@ -456,6 +463,30 @@ async def process_receipt_request(request: ReceiptRequest) -> ReceiptResponse:
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/webhooks/receipts", response_model=ReceiptWebhookResponse)
+async def receive_receipt_webhook(
+    sale_id: str = Form(..., min_length=1),
+    file: UploadFile = File(...),
+) -> ReceiptWebhookResponse:
+    content = await file.read()
+    filename = file.filename or "receipt.pdf"
+
+    LOGGER.info(
+        "Received receipt webhook: sale_id=%s filename=%s content_type=%s size_bytes=%s",
+        sale_id,
+        filename,
+        file.content_type,
+        len(content),
+    )
+
+    return ReceiptWebhookResponse(
+        status="received",
+        sale_id=sale_id,
+        filename=filename,
+        size_bytes=len(content),
+    )
 
 
 @app.post("/receipts/send", response_model=ReceiptResponse)

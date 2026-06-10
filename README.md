@@ -4,7 +4,7 @@ Headless Playwright service for logging into an inventory system, downloading a 
 
 ## What is included
 
-- `app.py` - FastAPI app with a `/receipts/send` endpoint.
+- `app.py` - FastAPI app with `/receipts/send` and `/webhooks/receipts` endpoints.
 - `requirements.txt` - Python dependencies for FastAPI, Uvicorn, Playwright, and email validation.
 - `Nixpacks.toml` - Railway/Nixpacks config that installs Python, Chromium dependencies, Playwright, and starts Uvicorn.
 - `.gitignore` - Keeps `.env`, `auth.json`, and generated receipt downloads out of Git.
@@ -74,6 +74,17 @@ curl -X POST "http://localhost:8000/receipts/send" \
   -H "Content-Type: application/json" \
   -d '{"sale_id":"SALE-12345","customer_email":"customer@example.com"}'
 ```
+
+Push an uploaded receipt PDF to GitHub:
+
+```bash
+curl -X POST "http://localhost:8000/webhooks/receipts" \
+  -H "X-Webhook-Secret: optional-shared-secret-for-inbound-webhooks" \
+  -F "sale_id=SALE-12345" \
+  -F "file=@/path/to/receipt.pdf;type=application/pdf"
+```
+
+The webhook stores the file at `GITHUB_RECEIPTS_DIR/<sale_id>.pdf` in the configured GitHub repository. If a receipt for the same sale already exists, the file is updated in place.
 
 The first successful login saves Playwright cookies/tokens to `auth.json`. Later requests reuse that storage state until the target system expires the session. If the login page is detected, the service runs the full username/password/2FA flow again and refreshes `auth.json`.
 
