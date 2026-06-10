@@ -5,7 +5,6 @@ Headless Playwright service for logging into an inventory system, downloading a 
 ## What is included
 
 - `app.py` - FastAPI app with `/receipts/send` and `/webhooks/receipts` endpoints.
-- `github_receipts.py` - GitHub Contents API helper for storing uploaded receipt PDFs.
 - `requirements.txt` - Python dependencies for FastAPI, Uvicorn, Playwright, and email validation.
 - `Nixpacks.toml` - Railway/Nixpacks config that installs Python, Chromium dependencies, Playwright, and starts Uvicorn.
 - `.gitignore` - Keeps `.env`, `auth.json`, and generated receipt downloads out of Git.
@@ -40,16 +39,7 @@ SMTP_USE_SSL="false"
 
 AUTH_STATE_PATH="auth.json"
 LOG_LEVEL="INFO"
-
-GITHUB_TOKEN="ghp_your_personal_access_token"
-GITHUB_OWNER="your-github-username-or-org"
-GITHUB_REPO="your-receipts-repo"
-GITHUB_BRANCH="main"
-GITHUB_RECEIPTS_DIR="receipts"
-WEBHOOK_SECRET="optional-shared-secret-for-inbound-webhooks"
 ```
-
-`GITHUB_TOKEN` needs `contents:write` access to the target repository. If `WEBHOOK_SECRET` is set, callers must send it in the `X-Webhook-Secret` header.
 
 Update the selector placeholders in `app.py` or set them as Railway variables:
 

@@ -2,5 +2,4 @@ fastapi
 uvicorn[standard]
 playwright
 pydantic[email]
-httpx
 python-multipart
